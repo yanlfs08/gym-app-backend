@@ -17,6 +17,7 @@ import { challengeRoutes } from './modules/challenges/challenge.routes'
 import { gamificationRoutes } from './modules/gamification/gamification.routes'
 import { checkInRoutes } from './modules/checkins/checkin.routes'
 import { paymentRoutes } from './modules/payments/payment.routes'
+import { dashboardRoutes } from './modules/dashboard/dashboard.routes'
 
 export const app = fastify()
 
@@ -83,7 +84,7 @@ app.register(gamificationRoutes, { prefix: '/api/gamification' })
 app.register(challengeRoutes, { prefix: '/api/challenges' })
 app.register(checkInRoutes, { prefix: '/api/checkins' })
 app.register(paymentRoutes, { prefix: '/api/payments' })
-
+app.register(dashboardRoutes, { prefix: '/api/dashboard' })
 
 // Global Error Handler
 app.setErrorHandler((error: any, _, reply) => {

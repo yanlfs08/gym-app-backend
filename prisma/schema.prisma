@@ -14,6 +14,7 @@ enum Role {
   ADMIN       // Dono/Gerente da academia
   TRAINER     // Personal/Professor
   STUDENT     // Aluno
+  SUPER_ADMIN // Dono do SaaS
 }
 
 enum DiscountType {
@@ -117,14 +118,32 @@ model Gym {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deletedAt DateTime?
+  subscription  GymSubscription? 
 
   @@map("gyms")
 }
 
+model GymSubscription {
+  id        String   @id @default(cuid())
+  gymId     String   @unique
+  gym       Gym      @relation(fields: [gymId], references: [id], onDelete: Cascade)
+  
+  planName  String   // Ex: "Plano Pro Mensal", "Plano Básico"
+  price     Float    // O valor que a academia te paga (Ex: 199.90)
+  status    String   // ACTIVE, OVERDUE (Atrasado), CANCELED
+  
+  expiresAt DateTime // Data de vencimento da próxima fatura
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("gym_subscriptions")
+}
+
 model User {
   id            String    @id @default(cuid())
-  gymId         String
-  gym           Gym       @relation(fields: [gymId], references: [id])
+  gymId         String?
+  gym           Gym?      @relation(fields: [gymId], references: [id])
 
   name          String
   email         String    @unique

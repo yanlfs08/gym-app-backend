@@ -2,7 +2,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 
 // Recebe um array de cargos permitidos
-export function verifyRole(allowedRoles: Array<'ADMIN' | 'TRAINER' | 'STUDENT'>) {
+export function verifyRole(allowedRoles: Array<'ADMIN' | 'TRAINER' | 'STUDENT' | 'SUPER_ADMIN'>) {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const { role } = request.user
 

@@ -4,6 +4,7 @@ import { z } from 'zod'
 export const registerGymSchema = z.object({
   gymName: z.string().min(3, 'Nome da academia deve ter pelo menos 3 caracteres'),
   cnpj: z.string().optional(),
+  address: z.string().min(5, 'O endereço físico é obrigatório para validação de check-ins'),
   adminName: z.string().min(2, 'Nome é obrigatório'),
   adminEmail: z.string().email('Email inválido'),
   adminPassword: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),

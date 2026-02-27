@@ -26,6 +26,7 @@ export async function userRoutes(app: FastifyInstance) {
         security: [{ bearerAuth: [] }],
         response: {
           200: z.object({ id: z.string(), name: z.string(), email: z.string(), role: z.string(), gymId: z.string() }),
+          404: z.object({ error: z.string() }),
         },
       },
     },

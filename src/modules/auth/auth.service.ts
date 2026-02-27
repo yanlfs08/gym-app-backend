@@ -1,6 +1,7 @@
 import { prisma } from '../../lib/prisma'
 import type { RegisterGymInput, LoginInput, ChangePasswordInput } from './auth.schema'
 import bcrypt from 'bcryptjs'
+import { getCoordinatesFromAddress } from '../../utils/geo'
 
 export class AuthService {
   // Registra a Academia E o primeiro usuário Admin numa transação só
@@ -14,15 +15,32 @@ export class AuthService {
       throw new Error('Email já está em uso.')
     }
 
+    const cnpj = data.cnpj?.trim() || null
+
+    if (cnpj) {
+      const gymExists = await prisma.gym.findUnique({
+        where: { cnpj },
+      })
+
+      if (gymExists) {
+        throw new Error('CNPJ já cadastrado.')
+      }
+    }
+
     // 2. Hash da senha
     const passwordHash = await bcrypt.hash(data.adminPassword, 10)
+
+    const coords = await getCoordinatesFromAddress(data.address)
 
     // 3. Criar a Academia e o Admin juntos (Transaction)
     const { gym, admin } = await prisma.$transaction(async (tx) => {
       const newGym = await tx.gym.create({
         data: {
           name: data.gymName,
-          cnpj: data.cnpj,
+          cnpj,
+          address: data.address,
+          latitude: coords?.lat, // Salva a Latitude
+          longitude: coords?.lon // Salva a Longitude
         },
       })
 

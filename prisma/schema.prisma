@@ -16,6 +16,11 @@ enum Role {
   STUDENT     // Aluno
 }
 
+enum DiscountType {
+  PERCENTAGE // Ex: 10% de desconto
+  FIXED      // Ex: R$ 50 de desconto
+}
+
 enum MuscleGroup {
   CHEST
   BACK
@@ -29,6 +34,65 @@ enum MuscleGroup {
 enum CheckInMethod {
   QR_CODE
   GEOLOCATION
+  MANUAL
+}
+
+// Crie o enum de tipos de desafio
+enum ChallengeType {
+  TOTAL_WEIGHT
+  CHECK_INS
+}
+
+// ------------------------------------------------------
+// CUPONS DE DESCONTO
+// ------------------------------------------------------
+model Coupon {
+  id          String       @id @default(cuid())
+  gymId       String
+  gym         Gym          @relation(fields: [gymId], references: [id])
+  
+  code        String       // Ex: VERAO20, ALUNONOVO
+  type        DiscountType
+  value       Float        // O valor do desconto (ex: 20 se for 20%, ou 50 se for R$50)
+  
+  expiresAt   DateTime?    // Data de validade (Opcional)
+  maxUses     Int?         // Limite de usos (Ex: os 50 primeiros ganham)
+  usedCount   Int          @default(0) // Quantas vezes já foi usado
+  isActive    Boolean      @default(true)
+  
+  payments    Payment[]    // Relação com os pagamentos que usaram este cupom
+  
+  createdAt   DateTime     @default(now())
+  
+  @@unique([gymId, code])  // O código deve ser único DENTRO da academia
+  @@map("coupons")
+}
+
+// ------------------------------------------------------
+// PAGAMENTOS (Atualizado)
+// ------------------------------------------------------
+model Payment {
+  id             String    @id @default(cuid())
+  studentId      String
+  student        User      @relation(fields: [studentId], references: [id])
+  
+  referenceMonth Int
+  referenceYear  Int
+  
+  // Valores da Cobrança
+  subtotal       Float     // Valor original (Ex: 150.00)
+  discountAmount Float     @default(0) // Valor do desconto em R$ (Ex: 15.00)
+  total          Float     // Valor final a pagar (Ex: 135.00)
+  discountReason String?   // Motivo do desconto ("Pagamento em dinheiro", "Cupom BORA10", etc)
+  
+  // Relação com o Cupom (Opcional)
+  couponId       String?
+  coupon         Coupon?   @relation(fields: [couponId], references: [id])
+  
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+  
+  @@map("payments")
 }
 
 // ------------------------------------------------------
@@ -42,8 +106,13 @@ model Gym {
   cnpj      String?  @unique
   address   String?
 
+  latitude  Float?
+  longitude Float?
+
   users     User[]
   exercises Exercise[]
+  challenges Challenge[]
+  coupons     Coupon[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -71,9 +140,12 @@ model User {
   createdSheets    WorkoutSheet[] @relation("TrainerSheets")
   assessments      PhysicalAssessment[] @relation("StudentAssessments")
   givenAssessments PhysicalAssessment[] @relation("TrainerAssessments")
+  reatedChallenges       Challenge[]            @relation("CreatedChallenges")
+  challengeParticipations ChallengeParticipant[] @relation("ChallengeParticipations")
   checkIns         CheckIn[]
   payments         Payment[]
   loadLogs         WorkoutLog[]
+  
 
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -82,26 +154,6 @@ model User {
   @@index([gymId])
   @@index([email])
   @@map("users")
-}
-
-// ------------------------------------------------------
-// GESTÃO E PAGAMENTOS (MANUAL)
-// ------------------------------------------------------
-
-model Payment {
-  id          String   @id @default(cuid())
-  studentId   String
-  student     User     @relation(fields: [studentId], references: [id])
-  amount      Float
-  referenceMonth Int   // ex: 1 para Janeiro
-  referenceYear  Int   // ex: 2024
-  paidAt      DateTime? // Se nulo, está pendente/atrasado
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([studentId])
-  @@map("payments")
 }
 
 // ------------------------------------------------------
@@ -197,6 +249,53 @@ model WorkoutLog {
 
   @@index([studentId])
   @@map("workout_logs")
+}
+
+// ------------------------------------------------------
+// DESAFIOS E COMUNIDADE (CHALLENGES)
+// ------------------------------------------------------
+
+model Challenge {
+  id          String   @id @default(cuid())
+  gymId       String
+  gym         Gym      @relation(fields: [gymId], references: [id])
+  
+  creatorId   String
+  creator     User     @relation("CreatedChallenges", fields: [creatorId], references: [id])
+  
+  title       String
+  description String?
+  isPublic    Boolean  @default(true)
+  inviteCode  String?  @unique 
+  
+  type        ChallengeType @default(CHECK_INS) // <-- NOVO CAMPO
+  
+  startDate   DateTime @default(now())
+  endDate     DateTime
+  
+  participants ChallengeParticipant[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([gymId])
+  @@map("challenges")
+}
+
+model ChallengeParticipant {
+  id          String    @id @default(cuid())
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  
+  studentId   String
+  student     User      @relation("ChallengeParticipations", fields: [studentId], references: [id])
+  
+  joinedAt    DateTime  @default(now())
+  
+  // Um aluno não pode entrar duas vezes no mesmo desafio
+  @@unique([challengeId, studentId]) 
+  @@index([studentId])
+  @@map("challenge_participants")
 }
 
 // ------------------------------------------------------

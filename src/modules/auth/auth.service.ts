@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma'
-import type { RegisterGymInput, LoginInput } from './auth.schema'
+import type { RegisterGymInput, LoginInput, ChangePasswordInput } from './auth.schema'
 import bcrypt from 'bcryptjs'
 
 export class AuthService {
@@ -68,5 +68,33 @@ export class AuthService {
       gymId: user.gymId, // CRÍTICO: Identificador do Tenant
       role: user.role, // CRÍTICO: Para controle de acesso RBAC
     }
+  }
+
+  async changePassword(userId: string, data: ChangePasswordInput) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    })
+
+    if (!user) {
+      throw new Error('Utilizador não encontrado.')
+    }
+
+    // Valida se a senha atual está correta
+    const isPasswordValid = await bcrypt.compare(data.currentPassword, user.passwordHash)
+
+    if (!isPasswordValid) {
+      throw new Error('A senha atual está incorreta.')
+    }
+
+    // Gera o hash da nova senha
+    const newPasswordHash = await bcrypt.hash(data.newPassword, 10)
+
+    // Atualiza a senha no banco de dados
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newPasswordHash },
+    })
+
+    return { success: true }
   }
 }

@@ -1,44 +1,27 @@
 {
-  // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
-    // File Layout
-    // "rootDir": "./src",
-    // "outDir": "./dist",
+    // Definem onde o código está e para onde vai no build
+    "rootDir": "./src",
+    "outDir": "./dist",
 
-    // Environment Settings
-    // See also https://aka.ms/tsconfig/module
-    "module": "nodenext",
-    "target": "esnext",
-    "types": [],
-    // For nodejs:
-    // "lib": ["esnext"],
-    // "types": ["node"],
-    // and npm install -D @types/node
+    // Configurações de Módulo e Ambiente
+    "target": "ES2022", // Versão do JS gerado
+    "module": "CommonJS", // Padrão do Node.js
+    "moduleResolution": "node", // Ensina o TS a achar o node_modules
+    "esModuleInterop": true, // CRÍTICO: Permite importar CommonJS como ES6 (ex: import bcrypt from 'bcryptjs')
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true, // Permite importar arquivos .json
 
-    // Other Outputs
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
-
-    // Stricter Typechecking Options
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-
-    // Style Options
-    // "noImplicitReturns": true,
-    // "noImplicitOverride": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
-    // "noFallthroughCasesInSwitch": true,
-    // "noPropertyAccessFromIndexSignature": true,
-
-    // Recommended Options
+    // Checagem de Tipos Estrita (Clean Code)
     "strict": true,
-    "jsx": "react-jsx",
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "noUncheckedSideEffectImports": true,
-    "moduleDetection": "force",
-    "skipLibCheck": true,
-  }
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Performance
+    "skipLibCheck": true, // Ignora checagem de tipos dentro de node_modules (acelera muito o TS)
+    "sourceMap": true // Ajuda no debug do código compilado
+  },
+  "include": ["src/**/*.ts"], // O que deve ser compilado
+  "exclude": ["node_modules", "dist", "**/*.spec.ts"] // O que NÃO deve ser compilado
 }

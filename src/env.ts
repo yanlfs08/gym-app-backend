@@ -1,3 +1,5 @@
+import 'dotenv/config'
+
 import process = require('process')
 import { z } from 'zod'
 

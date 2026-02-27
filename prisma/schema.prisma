@@ -1,0 +1,246 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // A linha url = env("DATABASE_URL") FOI REMOVIDA!
+}
+
+// Enums para padronização
+enum Role {
+  ADMIN       // Dono/Gerente da academia
+  TRAINER     // Personal/Professor
+  STUDENT     // Aluno
+}
+
+enum MuscleGroup {
+  CHEST
+  BACK
+  LEGS
+  SHOULDERS
+  ARMS
+  CORE
+  CARDIO
+}
+
+enum CheckInMethod {
+  QR_CODE
+  GEOLOCATION
+}
+
+// ------------------------------------------------------
+// MODELS PRINCIPAIS
+// ------------------------------------------------------
+
+// Modelagem SaaS: Isolamento por academia
+model Gym {
+  id        String   @id @default(cuid())
+  name      String
+  cnpj      String?  @unique
+  address   String?
+
+  users     User[]
+  exercises Exercise[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@map("gyms")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  gymId         String
+  gym           Gym       @relation(fields: [gymId], references: [id])
+
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(STUDENT)
+
+  // Gamificação
+  points        Int       @default(0)
+  currentStreak Int       @default(0)
+
+  // Relações
+  workoutSheets    WorkoutSheet[] @relation("StudentSheets")
+  createdSheets    WorkoutSheet[] @relation("TrainerSheets")
+  assessments      PhysicalAssessment[] @relation("StudentAssessments")
+  givenAssessments PhysicalAssessment[] @relation("TrainerAssessments")
+  checkIns         CheckIn[]
+  payments         Payment[]
+  loadLogs         WorkoutLog[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  @@index([gymId])
+  @@index([email])
+  @@map("users")
+}
+
+// ------------------------------------------------------
+// GESTÃO E PAGAMENTOS (MANUAL)
+// ------------------------------------------------------
+
+model Payment {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     User     @relation(fields: [studentId], references: [id])
+  amount      Float
+  referenceMonth Int   // ex: 1 para Janeiro
+  referenceYear  Int   // ex: 2024
+  paidAt      DateTime? // Se nulo, está pendente/atrasado
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([studentId])
+  @@map("payments")
+}
+
+// ------------------------------------------------------
+// CORE DE TREINOS
+// ------------------------------------------------------
+
+// Catálogo Global de Exercícios da Academia
+model Exercise {
+  id          String      @id @default(cuid())
+  gymId       String
+  gym         Gym         @relation(fields: [gymId], references: [id])
+
+  name        String
+  description String?
+  videoUrl    String?
+  muscleGroup MuscleGroup
+
+  workoutItems WorkoutItem[]
+
+  @@index([gymId])
+  @@map("exercises")
+}
+
+// A "Ficha" principal do aluno
+model WorkoutSheet {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     User     @relation("StudentSheets", fields: [studentId], references: [id])
+  creatorId   String   // Pode ser o próprio aluno ou o personal
+  creator     User     @relation("TrainerSheets", fields: [creatorId], references: [id])
+
+  name        String   // Ex: "Hipertrofia - Foco Pernas"
+  isActive    Boolean  @default(true)
+  isPriority  Boolean  @default(false) // True se criado pelo personal
+
+  workouts    Workout[] // As divisões (Treino A, Treino B, etc)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([studentId])
+  @@map("workout_sheets")
+}
+
+// A Divisão (Treino A, Treino B...)
+model Workout {
+  id            String   @id @default(cuid())
+  sheetId       String
+  sheet         WorkoutSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  name          String   // Ex: "A - Peito e Tríceps"
+
+  items         WorkoutItem[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([sheetId])
+  @@map("workouts")
+}
+
+// O exercício específico dentro do Treino A
+model WorkoutItem {
+  id          String   @id @default(cuid())
+  workoutId   String
+  workout     Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exerciseId  String
+  exercise    Exercise @relation(fields: [exerciseId], references: [id])
+
+  sets        Int      // Séries
+  reps        String   // Repetições (String para suportar ex: "10-12" ou "Até a falha")
+  restSeconds Int      // Tempo de descanso
+
+  logs        WorkoutLog[] // Histórico de cargas deste exercício na ficha
+
+  @@index([workoutId])
+  @@index([exerciseId])
+  @@map("workout_items")
+}
+
+// Log de progressão de carga (Gamificação e Acompanhamento)
+model WorkoutLog {
+  id            String   @id @default(cuid())
+  studentId     String
+  student       User     @relation(fields: [studentId], references: [id])
+
+  workoutItemId String
+  // CORREÇÃO AQUI: Mudamos de [workoutId] para [workoutItemId]
+  workoutItem   WorkoutItem @relation(fields: [workoutItemId], references: [id])
+
+  weightUsed    Float
+  notes         String?
+  completedAt   DateTime @default(now())
+
+  @@index([studentId])
+  @@map("workout_logs")
+}
+
+// ------------------------------------------------------
+// AVALIAÇÃO FÍSICA E CHECK-IN
+// ------------------------------------------------------
+
+model PhysicalAssessment {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     User     @relation("StudentAssessments", fields: [studentId], references: [id])
+  trainerId   String
+  trainer     User     @relation("TrainerAssessments", fields: [trainerId], references: [id])
+
+  weight      Float
+  height      Float
+
+  // Protocolo Jackson & Pollock (7 Dobras) em mm
+  chestFold       Float?
+  axillaryFold    Float?
+  tricepsFold     Float?
+  subscapularFold Float?
+  abdomenFold     Float?
+  suprailiacFold  Float?
+  thighFold       Float?
+
+  // Resultados calculados (serão calculados no backend Fastify)
+  bodyFatPercentage Float?
+  muscleMass        Float?
+
+  date        DateTime @default(now())
+  notes       String?
+
+  @@index([studentId])
+  @@map("physical_assessments")
+}
+
+model CheckIn {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     User     @relation(fields: [studentId], references: [id])
+  method      CheckInMethod
+
+  timestamp   DateTime @default(now())
+
+  @@index([studentId])
+  @@map("check_ins")
+}

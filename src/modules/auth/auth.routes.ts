@@ -1,7 +1,8 @@
 import { FastifyInstance } from 'fastify'
 import { ZodTypeProvider } from 'fastify-type-provider-zod'
 import { AuthService } from './auth.service'
-import { loginSchema, registerGymSchema } from './auth.schema'
+import { loginSchema, registerGymSchema, changePasswordSchema } from './auth.schema'
+import { verifyJwt } from '../../middlewares/verify-jwt'
 import { z } from 'zod'
 
 const authService = new AuthService()
@@ -70,6 +71,37 @@ export async function authRoutes(app: FastifyInstance) {
         return reply.status(200).send({ token })
       } catch (error: any) {
         return reply.status(401).send({ error: error.message })
+      }
+    },
+  )
+
+  server.post(
+    '/change-password',
+    {
+      onRequest: [verifyJwt], // 🔒 Protege a rota, injetando request.user
+      schema: {
+        summary: 'Altera a senha do utilizador autenticado',
+        tags: ['Auth'],
+        security: [{ bearerAuth: [] }],
+        body: changePasswordSchema,
+        response: {
+          200: z.object({ message: z.string() }),
+          400: z.object({ error: z.string() }),
+          401: z.object({ error: z.string() }),
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        // request.user.sub contém o ID do utilizador injetado pelo verifyJwt
+        const userId = request.user.sub
+
+        await authService.changePassword(userId, request.body)
+
+        return reply.status(200).send({ message: 'Senha alterada com sucesso.' })
+      } catch (error: any) {
+        // Se a senha atual for inválida ou o usuário não existir
+        return reply.status(400).send({ error: error.message })
       }
     },
   )

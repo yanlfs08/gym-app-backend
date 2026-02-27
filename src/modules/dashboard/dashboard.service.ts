@@ -1,8 +1,17 @@
 // src/modules/dashboard/dashboard.service.ts
 import { prisma } from '../../lib/prisma'
+import { redis } from '../../lib/redis'
 
 export class DashboardService {
   async getGymDashboard(gymId: string) {
+
+    const CACHE_KEY = `dashboard:gym:${gymId}`
+
+    const cachedDashboard = await redis.get(CACHE_KEY)
+    if (cachedDashboard) {
+      return JSON.parse(cachedDashboard)
+    }
+
     // Definir o início e fim do dia de hoje para os check-ins
     const today = new Date()
     const startOfDay = new Date(today.setHours(0, 0, 0, 0))
@@ -53,12 +62,8 @@ export class DashboardService {
       .reduce((acc, curr) => acc + curr.total, 0)
 
     // Retorna o objeto consolidado para o Frontend montar os gráficos
-    return {
-      metrics: {
-        totalStudents,
-        totalTrainers,
-        checkInsToday,
-      },
+    const dashboardData = {
+      metrics: { totalStudents, totalTrainers, checkInsToday },
       finance: {
         referenceMonth: currentMonth,
         referenceYear: currentYear,
@@ -67,5 +72,10 @@ export class DashboardService {
         pendingRevenue: expectedRevenue - receivedRevenue
       }
     }
+
+    // O parâmetro 'EX' define a expiração em Segundos (60 * 15 = 15 minutos)
+    await redis.set(CACHE_KEY, JSON.stringify(dashboardData), 'EX', 60 * 15)
+    
+    return dashboardData
   }
 }

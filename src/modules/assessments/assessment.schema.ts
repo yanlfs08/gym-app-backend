@@ -8,7 +8,7 @@ export const createAssessmentSchema = z.object({
 
   // Dados necessários para a fórmula de Jackson & Pollock
   age: z.number().int().positive('A idade é obrigatória para o cálculo'),
-  gender: z.enum(['MALE', 'FEMALE'], { required_error: 'O gênero é obrigatório para o cálculo' }),
+  gender: z.enum(['MALE', 'FEMALE'], { message: 'O gênero é obrigatório para o cálculo' }),
 
   notes: z.string().optional(),
 
